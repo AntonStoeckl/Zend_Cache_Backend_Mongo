@@ -15,7 +15,7 @@ require_once 'Zend/Cache/Backend/ExtendedInterface.php';
  * @package    Zend_Cache
  * @subpackage Zend_Cache_Backend_Mongo
  * @copyright  Copyright (c) 2009 Stunti. (http://www.stunti.org)
- * @copyrithg  Copyright (c) 2011 Anton Stöckl (http://www.stoeckl.de)
+ * @copyright  Copyright (c) 2011 Anton Stöckl (http://www.stoeckl.de)
  * @license    http://framework.zend.com/license/new-bsd     New BSD License
  */
 class Zend_Cache_Backend_Mongo extends Zend_Cache_Backend implements Zend_Cache_Backend_ExtendedInterface
