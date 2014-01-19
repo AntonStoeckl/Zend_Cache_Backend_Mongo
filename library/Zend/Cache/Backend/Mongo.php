@@ -75,29 +75,34 @@ class Zend_Cache_Backend_Mongo extends Zend_Cache_Backend implements Zend_Cache_
     /**
      * Assemble the URL that can be used to connect to the MongoDB server
      * 
-     * Note that connections to multiple servers at once is currently not supported
+     * Note that:
+     *  - connections to multiple servers at once is currently not supported
+     *  - FALSE, NULL or empty string values should be used to discard options
+     *    in an environment-specific configuration. For example when a 'development'
+     *    environment overrides a 'production' environment, it might be required
+     *    to discard the username and/or password, when this is not required
+     *    during development
      * 
      * @link http://www.php.net/manual/en/mongoclient.construct.php
      * @return string
      */
     private function getServerConnectionUrl()
     {
-        if(isset($this->_options['username']) && isset($this->_options['password'])){
-            return sprintf('mongodb://%s:%s@%s:%d/%s'
-                    , $this->_options['username']
-                    , $this->_options['password']
-                    , $this->_options['host']
-                    , $this->_options['port']
-                    , $this->_options['dbname']
-            );
+        $parts = array('mongodb://');
+        if(isset($this->_options['username']) && strlen($this->_options['username']) > 0 && isset($this->_options['password']) && strlen(($this->_options['password']) > 0)){
+            $parts[] = $this->_options['username'];
+            $parts[] = ':';
+            $parts[] = $this->_options['password'];
+            $parts[] = '@';
         }
-        else{
-            return sprintf('mongodb://%s:%d/%s'
-                    , $this->_options['host']
-                    , $this->_options['port']
-                    , $this->_options['dbname']
-            );
-        }
+        
+        $parts[] = isset($this->_options['host']) && strlen($this->_options['host']) > 0 ? $this->_options['host'] : self::DEFAULT_HOST;
+        $parts[] = ':';
+        $parts[] = isset($this->_options['port']) && is_numeric($this->_options['port']) ? $this->_options['port'] : self::DEFAULT_PORT;
+        $parts[] = '/';
+        $parts[] = isset($this->_options['dbname']) && strlen($this->_options['dbname']) > 0 ? $this->_options['dbname'] : self::DEFAULT_DBNAME;
+        
+        return implode('', $parts);
     }
     
     /**
