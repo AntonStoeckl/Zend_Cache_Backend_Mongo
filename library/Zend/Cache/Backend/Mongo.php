@@ -112,8 +112,7 @@ class Zend_Cache_Backend_Mongo extends Zend_Cache_Backend implements Zend_Cache_
      */
     public function ___expire($id)
     {
-        $cursor = $this->get($id);
-        if ($tmp = $cursor->getNext()) {
+        if ($tmp = $this->get($id)) {
             $tmp['l'] = -10;
             $this->_collection->save($tmp);
         }
@@ -124,19 +123,19 @@ class Zend_Cache_Backend_Mongo extends Zend_Cache_Backend implements Zend_Cache_
      *
      * @param  string  $id  Cache id
      * @param  boolean $doNotTestCacheValidity If set to true, the cache validity won't be tested
-     * @return string|false cached datas
+     * @return string | FALSE cached datas
      */
     public function load($id, $doNotTestCacheValidity = false)
     {
         try {
-            $cursor = $this->get($id);
-            if ($tmp = $cursor->getNext()) {
+            if ($tmp = $this->get($id, true)) {
                 if ($doNotTestCacheValidity || !$doNotTestCacheValidity && ($tmp['created_at'] + $tmp['l']) >= time()) {
                     return $tmp['d'];
                 } 
                 return false;
             }
         } catch (Exception $e) {
+            $this->_log(__METHOD__ . ': ' . $e->getMessage());
             return false;
         }
         
@@ -147,16 +146,16 @@ class Zend_Cache_Backend_Mongo extends Zend_Cache_Backend implements Zend_Cache_
      * Test if a cache is available or not (for the given id)
      *
      * @param  string $id Cache id
-     * @return mixed|false (a cache is not available) or "last modified" timestamp (int) of the available cache record
+     * @return mixed | FALSE (a cache is not available) or "last modified" timestamp (int) of the available cache record
      */
     public function test($id)
     {
         try {
-            $cursor = $this->get($id);
-            if ($tmp = $cursor->getNext()) {
+            if ($tmp = $this->get($id)) {
                 return $tmp['created_at'];
             }
         } catch (Exception $e) {
+            $this->_log(__METHOD__ . ': ' . $e->getMessage());
             return false;
         }
         
@@ -181,6 +180,7 @@ class Zend_Cache_Backend_Mongo extends Zend_Cache_Backend implements Zend_Cache_
             $lifetime = $this->getLifetime($specificLifetime);
             $result = $this->set($id, $data, $lifetime, $tags);
         } catch (Exception $e) {
+            $this->_log(__METHOD__ . ': ' . $e->getMessage());
             return false;
         }
             
@@ -198,6 +198,7 @@ class Zend_Cache_Backend_Mongo extends Zend_Cache_Backend implements Zend_Cache_
         try {
             $result = $this->_collection->remove(array('_id' => $id));
         } catch (Exception $e) {
+            $this->_log(__METHOD__ . ': ' . $e->getMessage());
             return false;
         }
         
@@ -425,9 +426,7 @@ class Zend_Cache_Backend_Mongo extends Zend_Cache_Backend implements Zend_Cache_
      */    
     public function getMetadatas($id)
     {
-        $cursor = $this->get($id);
-        
-        if ($tmp = $cursor->getNext()) {
+        if ($tmp = $this->get($id)) {
             $data = $tmp['d'];
             $mtime = $tmp['created_at'];
             $lifetime = $tmp['l'];
@@ -445,13 +444,12 @@ class Zend_Cache_Backend_Mongo extends Zend_Cache_Backend implements Zend_Cache_
      * Give (if possible) an extra lifetime to the given cache id
      *
      * @param string $id cache id
-     * @param int $extraLifetime
+     * @param integer $extraLifetime
      * @return boolean true if ok
      */    
    public function touch($id, $extraLifetime)
    {
-        $cursor = $this->get($id);
-        if ($tmp = $cursor->getNext()) {
+        if ($tmp = $this->get($id)) {
             $data = $tmp['d'];
             $mtime = $tmp['created_at'];
             $lifetime = $tmp['l'];
@@ -495,13 +493,13 @@ class Zend_Cache_Backend_Mongo extends Zend_Cache_Backend implements Zend_Cache_
     }
     
     /**
-     * @param int $id
+     * @param integer $id
      * @param array $data
-     * @param int $lifetime
+     * @param integer $lifetime
      * @param mixed $tags
      * @return boolean
      */
-    function set($id, $data, $lifetime, $tags)
+    private function set($id, $data, $lifetime, $tags)
     {
         $now = time();
         
@@ -512,18 +510,32 @@ class Zend_Cache_Backend_Mongo extends Zend_Cache_Backend implements Zend_Cache_
                 'created_at' => $now,
                 'l' => $lifetime,
                 'expire' => $now + $lifetime,
-                't' => $tags
+                't' => $tags,
+                'hits' => 0
             )
         );
     }   
     
     /**
-     * @param int $id
-     * @return array|false
+     * Lookup a specific cache entry
+     * 
+     * Optionally, increment the hit counter when loading the cache entry
+     * 
+     * @param integer $id
+     * @param boolean $incrementHitCounter = false
+     * @return array | FALSE
      */
-    function get($id)
+    private function get($id, $incrementHitCounter = false)
     {
-        return $this->_collection->find(array('_id' => $id));
+        if($incrementHitCounter === true){
+            return $this->_collection->findAndModify(
+                    array('_id' => $id)
+                    , array('$inc' => array('hits' => 1))
+            );
+        }
+        else{
+            return $this->_collection->findOne(array('_id' => $id));
+        }
     }
     
 }
